@@ -50,9 +50,11 @@ $Users | ForEach-Object {
         Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
         Enable-ADAccount -Identity $LocalUser.SamAccountName
         Write-Host "Syncrhonizing job title and department names..." -ForegroundColor Cyan
-        Set-ADUser -Identity $LocalUser.SamAccountName -Title $RemoteUser.Title -Department $RemoteUser.Department
-        Write-Host "Job title:  $((Get-ADUser $LocalUser.SamAccountName -Properties Title).Title)" -ForegroundColor Gray
-        Write-Host "Department: $((Get-ADUser $LocalUser.SamAccountName -Properties Department).Department)" -ForegroundColor Gray
+        Set-ADUser -Identity $LocalUser.SamAccountName -Title "$($RemoteUser.Title) | EXTERNAL" -Department "$($RemoteUser.Department) | EXTERNAL"
+        Write-Host "Job title (remote):  $($RemoteUser.Title)" -ForegroundColor Gray
+        Write-Host "Department (remote): $($RemoteUser.Department)" -ForegroundColor Gray
+        Write-Host "Job title set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Title).Title)" -ForegroundColor DarkGreen
+        Write-Host "Department set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Department).Department)" -ForegroundColor DarkGreen
         } elseif ($RemoteUser.Enabled -eq $False) {
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is disabled on $($RemoteDomain), disabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor Red
             Disable-ADAccount -Identity $LocalUser.SamAccountName
