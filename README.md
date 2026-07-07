@@ -10,6 +10,10 @@ Essentially, the script does the following logical procedures:
 3. Takes the Office attribute (that should contain remote DC SamAccountName attribute of the user) and requests the Name, SamAccountName, Title, Department and Enabled attributes of the user under that SamAccountName
 4. If the user is enabled remotely, enables it locally and synchronizes the Title and Department attributes. If the user is disabled remotely, disables him locally.
 
+There are also "emergency brakes" in case of errors:
+1. If the user isn't found on the remote domain, it's being disabled locally
+2. In case of any other errors, script shuts down immediately and (if SMTP connected) sends alerts.
+
 Any user can be linked to any other user through the Office, or really any other attribute.
 
 It can be run manually or headless through the Task Scheduler.
