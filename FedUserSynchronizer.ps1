@@ -69,7 +69,7 @@ $Users | ForEach-Object {
             Write-Host "Sending email to: $($admins)" -ForegroundColor Green
                     Send-MailMessage -To $admins `
                         -From $smtplogin `
-                        -Subject "ERROR: FedUserSyncrhonizer" `
+                        -Subject "ERROR: FedUserSynchronizer" `
                         -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettydate)!
             Check $($logpath) for the error logs! `n`
             EXCEPTION DETAILS: $($Exception)" `
