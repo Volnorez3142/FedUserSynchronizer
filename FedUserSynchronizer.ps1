@@ -84,7 +84,7 @@ EXCEPTION DETAILS: $($Exception)" `
         Exit
     }
     if (!$error) {
-        if ($RemoteUser.Enabled -eq $null) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY
+        if (($RemoteUser.Enabled -eq $null) -or ($RemoteUser.Enable -eq $True)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY
         Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
         Enable-ADAccount -Identity $LocalUser.SamAccountName
         Write-Host "Syncrhonizing job title and department names..." -ForegroundColor Cyan
