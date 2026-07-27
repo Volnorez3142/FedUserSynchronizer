@@ -30,7 +30,7 @@ $logpath = "$($fedusersyncpath)\SyncLog_$($rightnow).txt"
 Start-Transcript -path $logpath -append
 
 #ENVRINONMENT VARIABLES
-$SearchBase = "*OU=SAKURADA.LAN,OU=Users,OU=Armenia,OU=Sakurada Club,DC=sakurada,DC=lan" #THE OU OF WHICH USERS WILL BE AFFECTED
+$SearchBase = "OU=NONSAKURADA.LAN,OU=Users,OU=Armenia,OU=Sakurada Club,DC=sakurada,DC=lan" #THE OU OF WHICH USERS WILL BE AFFECTED
 $UserDescription = "REMOTE DOMAIN USER" #MUST BE ANYWHERE IN USER'S DESCRIPTION FIELD
 $RemoteDomain = "studio.lan"
 $Users = Get-ADUser -Filter * -SearchBase $SearchBase -Properties Description,Office | Select-Object Name,SamAccountName,Description,Office | Where-Object { $_.Description -like "*$($UserDescription)*" }
