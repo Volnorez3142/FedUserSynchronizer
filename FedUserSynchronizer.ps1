@@ -61,9 +61,9 @@ $Users | ForEach-Object {
         $global:ErrorUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName) at $($RemoteDomain) `n"
     } catch {
         $Exception = "SCRIPT UNSPECIFIED ERROR:
-        EXCEPTION NAME: $($_.Exception.GetType().FullName)
-        EXCEPTION MESSAGE: $($_.Exception.Message)
-        EXCEPTION ID: $($_.FullyQualifiedErrorId)"
+EXCEPTION NAME: $($_.Exception.GetType().FullName)
+EXCEPTION MESSAGE: $($_.Exception.Message)
+EXCEPTION ID: $($_.FullyQualifiedErrorId)"
         Write-Host $Exception -ForegroundColor DarkRed
         if ($emailnotify -eq 1) {
             Write-Host "Sending email to: $($admins)" -ForegroundColor Green
@@ -71,8 +71,8 @@ $Users | ForEach-Object {
                         -From $smtplogin `
                         -Subject "ERROR: FedUserSynchronizer" `
                         -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettydate)!
-            Check $($logpath) for the error logs! `n`
-            EXCEPTION DETAILS: $($Exception)" `
+Check $($logpath) for the error logs! `n`
+EXCEPTION DETAILS: $($Exception)" `
                         -SmtpServer $smtpserver `
                         -Port $smtpport `
                         -Credential $credentials `
