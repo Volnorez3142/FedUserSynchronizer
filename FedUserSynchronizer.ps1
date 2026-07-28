@@ -56,8 +56,8 @@ $Users | ForEach-Object {
         $global:RemoteUser = Get-ADUser $LocalUser.Office -Server $RemoteDomain -Properties Name,SamAccountName,Title,Department,Enabled | Select-Object Name,SamAccountName,Title,Department,Enabled
         #THE OFFICE ATTRIBUTE SHOULD CONTAIN USER'S SAMACCOUNT NAME ON THE REMOTE DOMAIN
     } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
-        Write-Host "$($global:LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $($global:LocalUser.SamAccountName) locally!" -ForegroundColor Red
-        Disable-ADAccount -Identity $global:LocalUser.SamAccountName
+        Write-Host "$(LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $(LocalUser.SamAccountName) locally!" -ForegroundColor Red
+        Disable-ADAccount -Identity $LocalUser.SamAccountName
         $global:ErrorUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName) at $($RemoteDomain) `n"
     } catch {
         $Exception = "SCRIPT UNSPECIFIED ERROR:
