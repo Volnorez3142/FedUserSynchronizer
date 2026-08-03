@@ -50,16 +50,20 @@ $admins = "zaven@volnorez.lan","nikita@volnorez.lan"
 
 #CORE LOGIC
 $Users | ForEach-Object {
-    $LocalUser = Get-ADUser $_.SamAccountName -Properties Office
+    $LocalUser = Get-ADUser $_.SamAccountName -Properties Office,Enabled
     Write-Host "Working on $($LocalUser.Name)..."
     $Error.Clear()
     Try {
         $global:RemoteUser = Get-ADUser $LocalUser.Office -Server $RemoteDomain -Properties Name,SamAccountName,Title,Department,Enabled | Select-Object Name,SamAccountName,Title,Department,Enabled
         #THE OFFICE ATTRIBUTE SHOULD CONTAIN USER'S SAMACCOUNT NAME ON THE REMOTE DOMAIN
     } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+        if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
+            Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
+            $global:NewlyShutDownUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+        }
         Write-Host "$($LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $($LocalUser.SamAccountName) locally!" -ForegroundColor Red
         Disable-ADAccount -Identity $LocalUser.SamAccountName
-        $global:ErrorUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName) at $($RemoteDomain) `n"
+        $global:NotFoundUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName) at $($RemoteDomain) `n"
     } catch {
         $Exception = "SCRIPT UNSPECIFIED ERROR:
 EXCEPTION NAME: $($_.Exception.GetType().FullName)
@@ -67,7 +71,7 @@ EXCEPTION MESSAGE: $($_.Exception.Message)
 EXCEPTION ID: $($_.FullyQualifiedErrorId)"
         Write-Host $Exception -ForegroundColor DarkRed
         if ($emailnotify -eq 1) {
-            Write-Host "Sending email to: $($admins)" -ForegroundColor Green
+            Write-Host "Sending error email to: $($admins)" -ForegroundColor Green
                     Send-MailMessage -To $admins `
                         -From $smtplogin `
                         -Subject "ERROR: FedUserSynchronizer" `
@@ -85,7 +89,10 @@ EXCEPTION DETAILS: $($Exception)" `
         Exit
     }
     if (!$error) {
-        if (($RemoteUser.Enabled -eq $null) -or ($RemoteUser.Enable -eq $True)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
+        if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enable -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
+        if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enable -eq $null))) {
+            $NewlyEnabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+        }
         Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
         Enable-ADAccount -Identity $LocalUser.SamAccountName
         Write-Host "Syncrhonizing job title and department names..." -ForegroundColor Cyan
@@ -95,6 +102,10 @@ EXCEPTION DETAILS: $($Exception)" `
         Write-Host "Job title set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Title).Title)" -ForegroundColor DarkGreen
         Write-Host "Department set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Department).Department)" -ForegroundColor DarkGreen
         } elseif ($RemoteUser.Enabled -eq $False) {
+            if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
+            Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
+            $NewlyShutDownUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+            }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is disabled on $($RemoteDomain), disabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor Red
             Disable-ADAccount -Identity $LocalUser.SamAccountName
         }
@@ -105,9 +116,37 @@ EXCEPTION DETAILS: $($Exception)" `
     Write-Output " "
 }
 
+if ((($NewlyShutDownUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -eq 1)) {
+        Write-Host "Sending shutdown email to: $($admins)" -ForegroundColor Green
+        Send-MailMessage -To $admins `
+            -From $smtplogin `
+            -Subject "UPDATE: FedUserSynchronizer" `
+            -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate) and updated the user directory!`n`
+LIST OF NEWLY SHUT DOWN USERS:
+$($NewlyShutDownUserList)
+LIST OF NEWLY ENABLED USERS:
+$($NewlyEnabledUserList)
+For more in-depth logs, check $($logpath)."`
+            -SmtpServer $smtpserver `
+            -Port $smtpport `
+            -Credential $credentials `
+            -UseSsl
+}
+
 Write-Host @"
 USERS WITH ERROR LIST:
-$ErrorUserList 
+$NotFoundUserList 
+================
+"@
+Write-Host @"
+NEWLY SHUT DOWN USER LIST:
+$NewlyShutDownUserList 
+================
+"@
+
+Write-Host @"
+NEWLY ENABLED USERS LIST:
+$NewlyEnabledUserList 
 ================
 "@
 
