@@ -20,4 +20,4 @@ It can be run manually or headless through the Task Scheduler.
 
 The code is fairly simple and relatively small, the design can be considered borderline intuitive.
 
-As a nice-to-haves, it logs separately every run into a C:\by3142\FedUserSynchronizer folder.
+As an EXTREMELY NICE TO HAVE, it logs separately every run into a C:\by3142\FedUserSynchronizer folder, logs all the NEWLY enabled/disabled users, and sends mentioned directory updates to email.
