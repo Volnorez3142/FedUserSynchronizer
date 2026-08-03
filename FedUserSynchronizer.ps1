@@ -24,8 +24,9 @@ if (-not $test3142dir) {
     #ALL FINE, SKIPPING
 }
 $fedusersyncpath = "C:\by3142\FedUserSynchronizer"
-$rightnow = $(Get-Date -Format "yyyy-MM-dd_HHmmss")
-$prettydate = (Get-Date)
+$rightnow = $(Get-Date -Format "dd-MM-yyyy_HHmmss")
+$prettydate = Get-Date -Format "dddd, dd MMMM, yyyy"
+$prettytime = Get-Date -Format "HH:mm:ss"
 $logpath = "$($fedusersyncpath)\SyncLog_$($rightnow).txt"
 Start-Transcript -path $logpath -append
 
@@ -56,7 +57,7 @@ $Users | ForEach-Object {
         $global:RemoteUser = Get-ADUser $LocalUser.Office -Server $RemoteDomain -Properties Name,SamAccountName,Title,Department,Enabled | Select-Object Name,SamAccountName,Title,Department,Enabled
         #THE OFFICE ATTRIBUTE SHOULD CONTAIN USER'S SAMACCOUNT NAME ON THE REMOTE DOMAIN
     } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
-        Write-Host "$(LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $(LocalUser.SamAccountName) locally!" -ForegroundColor Red
+        Write-Host "$($LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $($LocalUser.SamAccountName) locally!" -ForegroundColor Red
         Disable-ADAccount -Identity $LocalUser.SamAccountName
         $global:ErrorUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName) at $($RemoteDomain) `n"
     } catch {
@@ -70,7 +71,7 @@ EXCEPTION ID: $($_.FullyQualifiedErrorId)"
                     Send-MailMessage -To $admins `
                         -From $smtplogin `
                         -Subject "ERROR: FedUserSynchronizer" `
-                        -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettydate)!
+                        -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettytime), $($prettydate)!
 Check $($logpath) for the error logs! `n`
 EXCEPTION DETAILS: $($Exception)" `
                         -SmtpServer $smtpserver `
@@ -84,7 +85,7 @@ EXCEPTION DETAILS: $($Exception)" `
         Exit
     }
     if (!$error) {
-        if (($RemoteUser.Enabled -eq $null) -or ($RemoteUser.Enable -eq $True)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY
+        if (($RemoteUser.Enabled -eq $null) -or ($RemoteUser.Enable -eq $True)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
         Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
         Enable-ADAccount -Identity $LocalUser.SamAccountName
         Write-Host "Syncrhonizing job title and department names..." -ForegroundColor Cyan
