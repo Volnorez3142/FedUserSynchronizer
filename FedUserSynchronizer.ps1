@@ -59,7 +59,7 @@ $Users | ForEach-Object {
     } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
         if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
-            $global:NewlyShutDownUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+            $global:NewlyDisabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
         }
         Write-Host "$($LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $($LocalUser.SamAccountName) locally!" -ForegroundColor Red
         Disable-ADAccount -Identity $LocalUser.SamAccountName
@@ -104,7 +104,7 @@ EXCEPTION DETAILS: $($Exception)" `
         } elseif ($RemoteUser.Enabled -eq $False) {
             if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
-            $NewlyShutDownUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is disabled on $($RemoteDomain), disabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor Red
             Disable-ADAccount -Identity $LocalUser.SamAccountName
@@ -116,14 +116,14 @@ EXCEPTION DETAILS: $($Exception)" `
     Write-Output " "
 }
 
-if ((($NewlyShutDownUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -eq 1)) {
+if ((($NewlyDisabledUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -eq 1)) {
         Write-Host "Sending shutdown email to: $($admins)" -ForegroundColor Green
         Send-MailMessage -To $admins `
             -From $smtplogin `
             -Subject "UPDATE: FedUserSynchronizer" `
-            -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate) and updated the user directory!`n`
+            -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate), and updated the user directory!`n`
 LIST OF NEWLY SHUT DOWN USERS:
-$($NewlyShutDownUserList)
+$($NewlyDisabledUserList)
 LIST OF NEWLY ENABLED USERS:
 $($NewlyEnabledUserList)
 For more in-depth logs, check $($logpath)."`
@@ -139,8 +139,8 @@ $NotFoundUserList
 ================
 "@
 Write-Host @"
-NEWLY SHUT DOWN USER LIST:
-$NewlyShutDownUserList 
+NEWLY DISABLED USERS LIST:
+$NewlyDisabledUserList 
 ================
 "@
 
