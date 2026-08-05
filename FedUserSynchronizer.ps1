@@ -72,16 +72,21 @@ EXCEPTION ID: $($_.FullyQualifiedErrorId)"
         Write-Host $Exception -ForegroundColor DarkRed
         if ($emailnotify -eq 1) {
             Write-Host "Sending error email to: $($admins)" -ForegroundColor Green
-                    Send-MailMessage -To $admins `
-                        -From $smtplogin `
-                        -Subject "ERROR: FedUserSynchronizer" `
-                        -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettytime), $($prettydate)!
+            Try {
+                Send-MailMessage -To $admins `
+                -From $smtplogin `
+                -Subject "ERROR: FedUserSynchronizer" `
+                -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettytime), $($prettydate)!
 Check $($logpath) for the error logs! `n`
 EXCEPTION DETAILS: $($Exception)" `
-                        -SmtpServer $smtpserver `
-                        -Port $smtpport `
-                        -Credential $credentials `
-                        -UseSsl
+                -SmtpServer $smtpserver `
+                -Port $smtpport `
+                -Credential $credentials `
+                -UseSsl
+            } catch {
+                Write-Host "Error trying to send the email! Exiting!" -ForegroundColor Red
+                Exit
+            }
         } elseif ($emailnotify -ne 1) {
             #SKIPPING
         }
@@ -89,18 +94,18 @@ EXCEPTION DETAILS: $($Exception)" `
         Exit
     }
     if (!$error) {
-        if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enable -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
-        if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enable -eq $null))) {
-            $NewlyEnabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
-        }
-        Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
-        Enable-ADAccount -Identity $LocalUser.SamAccountName
-        Write-Host "Syncrhonizing job title and department names..." -ForegroundColor Cyan
-        Set-ADUser -Identity $LocalUser.SamAccountName -Title "$($RemoteUser.Title) | EXTERNAL" -Department "$($RemoteUser.Department) | EXTERNAL"
-        Write-Host "Job title (remote):  $($RemoteUser.Title)" -ForegroundColor Gray
-        Write-Host "Department (remote): $($RemoteUser.Department)" -ForegroundColor Gray
-        Write-Host "Job title set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Title).Title)" -ForegroundColor DarkGreen
-        Write-Host "Department set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Department).Department)" -ForegroundColor DarkGreen
+        if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
+            if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null))) {
+                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+            }
+            Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
+            Enable-ADAccount -Identity $LocalUser.SamAccountName
+            Write-Host "Syncrhonizing job title and department names..." -ForegroundColor Cyan
+            Set-ADUser -Identity $LocalUser.SamAccountName -Title "$($RemoteUser.Title) | EXTERNAL" -Department "$($RemoteUser.Department) | EXTERNAL"
+            Write-Host "Job title (remote):  $($RemoteUser.Title)" -ForegroundColor Gray
+            Write-Host "Department (remote): $($RemoteUser.Department)" -ForegroundColor Gray
+            Write-Host "Job title set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Title).Title)" -ForegroundColor DarkGreen
+            Write-Host "Department set (local): $((Get-ADUser $LocalUser.SamAccountName -Properties Department).Department)" -ForegroundColor DarkGreen
         } elseif ($RemoteUser.Enabled -eq $False) {
             if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
