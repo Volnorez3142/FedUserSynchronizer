@@ -50,6 +50,7 @@ $admins = "zaven@volnorez.lan","nikita@volnorez.lan"
 
 #CORE LOGIC
 $Users | ForEach-Object {
+    $cycle = $cycle + 1 #AMOUNT OF USERS CYCLED OVER
     $LocalUser = Get-ADUser $_.SamAccountName -Properties Office,Enabled
     Write-Host "Working on $($LocalUser.Name)..."
     $Error.Clear()
@@ -96,7 +97,7 @@ EXCEPTION DETAILS: $($Exception)" `
     if (!$error) {
         if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
             if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null))) {
-                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)@$($RemoteDomain)`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
             Enable-ADAccount -Identity $LocalUser.SamAccountName
@@ -109,7 +110,7 @@ EXCEPTION DETAILS: $($Exception)" `
         } elseif ($RemoteUser.Enabled -eq $False) {
             if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
-            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)@$($RemoteDomain)`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is disabled on $($RemoteDomain), disabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor Red
             Disable-ADAccount -Identity $LocalUser.SamAccountName
@@ -127,6 +128,7 @@ if ((($NewlyDisabledUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -e
             -From $smtplogin `
             -Subject "UPDATE: FedUserSynchronizer" `
             -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate), and updated the user directory!`n`
+AMOUNT OF CYCLES/AFFECTED USERS: $($cycle) `n`
 LIST OF NEWLY DISABLED USERS:
 $($NewlyDisabledUserList)
 LIST OF NEWLY ENABLED USERS:
@@ -139,10 +141,17 @@ For more in-depth logs, check $($logpath)." `
 }
 
 Write-Host @"
+AMOUNT OF USERS AFFECTED/CYCLED: $($cycle)
+
+================
+"@
+
+Write-Host @"
 USERS WITH ERROR LIST:
 $NotFoundUserList 
 ================
 "@
+
 Write-Host @"
 NEWLY DISABLED USERS LIST:
 $NewlyDisabledUserList 
