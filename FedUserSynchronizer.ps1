@@ -127,11 +127,11 @@ if ((($NewlyDisabledUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -e
             -From $smtplogin `
             -Subject "UPDATE: FedUserSynchronizer" `
             -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate), and updated the user directory!`n`
-LIST OF NEWLY SHUT DOWN USERS:
+LIST OF NEWLY DISABLED USERS:
 $($NewlyDisabledUserList)
 LIST OF NEWLY ENABLED USERS:
 $($NewlyEnabledUserList)
-For more in-depth logs, check $($logpath)."`
+For more in-depth logs, check $($logpath)." `
             -SmtpServer $smtpserver `
             -Port $smtpport `
             -Credential $credentials `
