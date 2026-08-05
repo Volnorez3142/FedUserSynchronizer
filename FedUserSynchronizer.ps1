@@ -97,7 +97,7 @@ EXCEPTION DETAILS: $($Exception)" `
     if (!$error) {
         if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
             if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null))) {
-                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)@$($RemoteDomain)`n"
+                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.SamAccountName)@$($RemoteDomain)]`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
             Enable-ADAccount -Identity $LocalUser.SamAccountName
@@ -110,7 +110,7 @@ EXCEPTION DETAILS: $($Exception)" `
         } elseif ($RemoteUser.Enabled -eq $False) {
             if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
-            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)@$($RemoteDomain)`n"
+            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.SamAccountName)@$($RemoteDomain)]`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is disabled on $($RemoteDomain), disabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor Red
             Disable-ADAccount -Identity $LocalUser.SamAccountName
