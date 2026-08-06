@@ -71,12 +71,9 @@ $Users | ForEach-Object {
         Disable-ADAccount -Identity $LocalUser.SamAccountName
         $global:NotFoundUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n"
     } catch {
-        $Exception = "SCRIPT UNSPECIFIED ERROR:
-EXCEPTION NAME: $($_.Exception.GetType().FullName)
+        $Exception = "EXCEPTION NAME: $($_.Exception.GetType().FullName)
 EXCEPTION MESSAGE: $($_.Exception.Message)
-EXCEPTION ID: $($_.FullyQualifiedErrorId)
-CYCLE STOPPED AT: $($cycle) OUT OF $($amount)
-USER STOPPED AT: $($LocalUser.Name) [Remote user: $($LocalUser.Office)@$($RemoteDomain)]"
+EXCEPTION ID: $($_.FullyQualifiedErrorId)"
         Write-Host $Exception -ForegroundColor DarkRed
         if ($emailnotify -eq 1) {
             Write-Host "Sending error email to: $($admins)" -ForegroundColor Green
@@ -86,7 +83,9 @@ USER STOPPED AT: $($LocalUser.Name) [Remote user: $($LocalUser.Office)@$($Remote
                 -Subject "ERROR: FedUserSynchronizer" `
                 -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettytime), $($prettydate)!
 Check $($logpath) for the error logs! `n`
-EXCEPTION DETAILS: $($Exception)" `
+CYCLE STOPPED AT: $($cycle) OUT OF $($amount)
+USER STOPPED AT: $($LocalUser.Name) [Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n`
+$($Exception)" `
                 -SmtpServer $smtpserver `
                 -Port $smtpport `
                 -Credential $credentials `
