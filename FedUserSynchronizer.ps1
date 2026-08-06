@@ -48,9 +48,14 @@ $smtpserver = "smtp.volnorez.lan"
 $smtpport = 587
 $admins = "zaven@volnorez.lan","nikita@volnorez.lan"
 
+#CORE LOGIC VARIABLES
+$cycle = 0
+$amount = ($Users | Measure-Object).Count
+
 #CORE LOGIC
 $Users | ForEach-Object {
     $cycle = $cycle + 1 #AMOUNT OF USERS CYCLED OVER
+    Write-Host "CYCLE $($cycle) OUT OF $($amount)" -ForegroundColor Gray
     $LocalUser = Get-ADUser $_.SamAccountName -Properties Office,Enabled
     Write-Host "Working on $($LocalUser.Name)..."
     $Error.Clear()
@@ -60,16 +65,18 @@ $Users | ForEach-Object {
     } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
         if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
-            $global:NewlyDisabledUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName)`n"
+            $global:NewlyDisabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n"
         }
         Write-Host "$($LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $($LocalUser.SamAccountName) locally!" -ForegroundColor Red
         Disable-ADAccount -Identity $LocalUser.SamAccountName
-        $global:NotFoundUserList += "$($LocalUser.Name) | " + "$($LocalUser.SamAccountName) at $($RemoteDomain) `n"
+        $global:NotFoundUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n"
     } catch {
         $Exception = "SCRIPT UNSPECIFIED ERROR:
 EXCEPTION NAME: $($_.Exception.GetType().FullName)
 EXCEPTION MESSAGE: $($_.Exception.Message)
-EXCEPTION ID: $($_.FullyQualifiedErrorId)"
+EXCEPTION ID: $($_.FullyQualifiedErrorId)
+CYCLE STOPPED AT: $($cycle) OUT OF $($amount)
+USER STOPPED AT: $($LocalUser.Name) [Remote user: $($LocalUser.Office)@$($RemoteDomain)]"
         Write-Host $Exception -ForegroundColor DarkRed
         if ($emailnotify -eq 1) {
             Write-Host "Sending error email to: $($admins)" -ForegroundColor Green
@@ -94,10 +101,10 @@ EXCEPTION DETAILS: $($Exception)" `
         Write-Host "Exiting!" -ForegroundColor Red
         Exit
     }
-    if (!$error) {
+if (!$error) {
         if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
             if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null))) {
-                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.SamAccountName)@$($RemoteDomain)]`n"
+                $NewlyEnabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)]`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is enabled on $($RemoteDomain), enabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor DarkGreen
             Enable-ADAccount -Identity $LocalUser.SamAccountName
@@ -110,7 +117,7 @@ EXCEPTION DETAILS: $($Exception)" `
         } elseif ($RemoteUser.Enabled -eq $False) {
             if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
-            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.SamAccountName)@$($RemoteDomain)]`n"
+            $NewlyDisabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)]`n"
             }
             Write-Host "$($RemoteUser.Name) [$($RemoteUser.SamAccountName)] is disabled on $($RemoteDomain), disabling $($LocalUser.Name) [$($LocalUser.SamAccountName)] locally." -ForegroundColor Red
             Disable-ADAccount -Identity $LocalUser.SamAccountName
@@ -128,7 +135,7 @@ if ((($NewlyDisabledUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -e
             -From $smtplogin `
             -Subject "UPDATE: FedUserSynchronizer" `
             -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate), and updated the user directory!`n`
-AMOUNT OF CYCLES/AFFECTED USERS: $($cycle) `n`
+AMOUNT OF CYCLES/AFFECTED USERS: $($cycle) OUT OF $($amount) `n`
 LIST OF NEWLY DISABLED USERS:
 $($NewlyDisabledUserList)
 LIST OF NEWLY ENABLED USERS:
@@ -141,7 +148,7 @@ For more in-depth logs, check $($logpath)." `
 }
 
 Write-Host @"
-AMOUNT OF USERS AFFECTED/CYCLED: $($cycle)
+AMOUNT OF USERS AFFECTED/CYCLED: $($cycle) OUT OF $($amount)
 
 ================
 "@
