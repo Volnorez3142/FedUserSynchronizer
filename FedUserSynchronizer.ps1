@@ -76,11 +76,14 @@ ForEach ($address in $dcresolve) {
         $UnavailableDomainList += "$($address.Name) @ $($address.IPAddress) `n"
     }
 }
+Write-Progress -Activity "Test-NetConnection" -Completed
 if (!$RemoteDCAddress) {
     Write-Host "No functional AD server was found to test $($testuser)@$($RemoteDomain)." -ForegroundColor DarkRed
     Write-Host 'Setting $RemoteDCAddress to 512.512.512.512' -ForegroundColor DarkRed
     $RemoteDCAddress = "512.512.512.512" #REMEMBER OUR PROMISE
 } 
+Write-Output "================"
+Write-Output " "
 
 #CORE LOGIC
 $Users | ForEach-Object {
