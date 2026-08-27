@@ -50,27 +50,42 @@ $smtpport = 587
 $admins = "zaven@volnorez.lan","nikita@volnorez.lan"
 
 #CORE LOGIC VARIABLES
-$cycle = 0
-$amount = ($Users | Measure-Object).Count
+$usercycle = 0
+$useramount = ($Users | Measure-Object).Count
 $dcresolve = Resolve-DnsName -Name $RemoteDomain
+$testuser = "Administrator" #USER TO TEST WHETHER INFO CAN BE RETRIEVED FROM THE SERVER. ADMINISTRATOR IS PRESENT BY DEFAULT AND IMPOSSIBLE TO DELETE.
 ForEach ($address in $dcresolve) {
+    $resolvecycle = $resolvecycle + 1
     Write-Host "Testing $($RemoteDomain) at $($address.IPAddress)..."
     $port = Test-NetConnection $address.IPAddress -Port $DCPort
     if ($port.TcpTestSucceeded -eq $True) {
         Write-Host "Port $($DCPort) open at $($address.IPAddress)!" -ForegroundColor Green
-        $RemoteDCAddress = $address.IPAddress
-        Write-Host "Address for $($RemoteDomain) AD queries is set as: $($RemoteDCAddress)."
-        break
+        Write-Host "Retrieving test user info [$($testuser)@$($RemoteDomain)]..."
+        $usertest = Get-ADUser $testuser -Server "$($address.IPAddress):$($DCPort)"
+        if ($usertest) {
+            Write-Host "User info retrieved successfully!" -ForegroundColor Green
+            Write-Host "DistinguishedName of $($testuser)@$($RemoteDomain) as proof: $($usertest.DistinguishedName)"
+            $RemoteDCAddress = $address.IPAddress
+            Write-Host "Address for $($RemoteDomain) AD queries is set as: $($RemoteDCAddress)" -ForegroundColor Magenta
+            break
+        } elseif (!$usertest) {
+            Write-Host "Unable to retrieve user info from $($address.IPAddress)" -ForegroundColor Red
+        }
     } elseif ($port.TcpTestSucceeded -eq $False) {
         Write-Host "Port $($DCPort) at $($address.IPAddress) unavailable." -ForegroundColor Red
         $UnavailableDomainList += "$($address.Name) @ $($address.IPAddress) `n"
     }
 }
+if (!$RemoteDCAddress) {
+    Write-Host "No functional AD server was found to test $($testuser)@$($RemoteDomain)." -ForegroundColor DarkRed
+    Write-Host 'Setting $RemoteDCAddress to 512.512.512.512' -ForegroundColor DarkRed
+    $RemoteDCAddress = "512.512.512.512" #REMEMBER OUR PROMISE
+} 
 
 #CORE LOGIC
 $Users | ForEach-Object {
-    $cycle = $cycle + 1 #AMOUNT OF USERS CYCLED OVER
-    Write-Host "CYCLE $($cycle) OUT OF $($amount)" -ForegroundColor Gray
+    $usercycle = $usercycle + 1 #AMOUNT OF USERS CYCLED OVER
+    Write-Host "CYCLE $($usercycle) OUT OF $($useramount)" -ForegroundColor Gray
     $LocalUser = Get-ADUser $_.SamAccountName -Properties Office,Enabled
     Write-Host "Working on $($LocalUser.Name)..."
     $Error.Clear()
@@ -82,7 +97,7 @@ $Users | ForEach-Object {
             Write-Output "$($LocalUser.Name) [$($LocalUser.SamAccountName)] is enabled locally!" -ForegroundColor Green
             $global:NewlyDisabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n"
         }
-        Write-Host "$($LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain)! Disabling $($LocalUser.SamAccountName) locally!" -ForegroundColor Red
+        Write-Host "$($LocalUser.Name) [$($LocalUser.Office)] was not found in $($RemoteDomain) at $($RemoteDCAddress)! Disabling $($LocalUser.SamAccountName) locally!" -ForegroundColor Red
         Disable-ADAccount -Identity $LocalUser.SamAccountName
         $global:NotFoundUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n"
     } catch {
@@ -98,15 +113,16 @@ EXCEPTION ID: $($_.FullyQualifiedErrorId)"
                 -Subject "ERROR: FedUserSynchronizer" `
                 -Body "FedUserSynchronizer on $($env:COMPUTERNAME) failed to run at $($prettytime), $($prettydate)!
 Check $($logpath) for the error logs! `n`
-CYCLE STOPPED AT: $($cycle) OUT OF $($amount)
+CYCLE STOPPED AT: $($usercycle) OUT OF $($useramount)
 USER STOPPED AT: $($LocalUser.Name) [Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n`
 $($Exception) `n`
 Domain Controllers availability list:
-    $($RemoteDomain) resolve list:
-        $($dcresolve | Out-String)
-    Unavailable domain list:
-        $($UnavailableDomainList)
-    Chosen address for $($RemoteDomain): $($RemoteDCAddress)" `
+$($RemoteDomain) resolve list:
+$($dcresolve | Out-String)
+Unavailable domain list:
+$($UnavailableDomainList)
+Chosen address for $($RemoteDomain): $($RemoteDCAddress)
+User to test info retrieve: $($testuser)@$($RemoteDomain)" `
                 -SmtpServer $smtpserver `
                 -Port $smtpport `
                 -Credential $credentials `
@@ -155,7 +171,7 @@ if ((($NewlyDisabledUserList) -or ($NewlyEnabledUserList)) -and ($emailnotify -e
             -From $smtplogin `
             -Subject "UPDATE: FedUserSynchronizer" `
             -Body "FedUserSynchronizer successfully ran on $($env:COMPUTERNAME) at $($prettytime), $($prettydate), and updated the user directory!`n`
-AMOUNT OF CYCLES/AFFECTED USERS: $($cycle) OUT OF $($amount) `n`
+AMOUNT OF CYCLES/AFFECTED USERS: $($usercycle) OUT OF $($useramount) `n`
 LIST OF NEWLY DISABLED USERS:
 $($NewlyDisabledUserList)
 LIST OF NEWLY ENABLED USERS:
@@ -172,12 +188,13 @@ RESOLVE LIST FOR $($RemoteDomain):
 $($dcresolve | Out-String)
 PORT $($DCPort) UNAVAILABLE FOR:
 $($UnavailableDomainList)
+USER TO TEST INFO RETRIEVE: $($testuser)@$($RemoteDomain)
 CHOSEN AD SERVER: $($RemoteDCAddress)
 ================
 "@
 
 Write-Host @"
-AMOUNT OF USERS AFFECTED/CYCLED: $($cycle) OUT OF $($amount)
+AMOUNT OF USERS AFFECTED/CYCLED: $($usercycle) OUT OF $($useramount)
 
 ================
 "@
