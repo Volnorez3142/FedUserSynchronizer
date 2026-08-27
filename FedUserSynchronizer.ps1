@@ -32,8 +32,9 @@ Start-Transcript -path $logpath -append
 
 #ENVRINONMENT VARIABLES
 $SearchBase = "OU=NONSAKURADA.LAN,OU=Users,OU=Armenia,OU=Sakurada Club,DC=sakurada,DC=lan" #THE OU OF WHICH USERS WILL BE AFFECTED
-$UserDescription = "REMOTE DOMAIN USER" #MUST BE ANYWHERE IN USER'S DESCRIPTION FIELD
+$UserDescription = "REMOTE DOMAIN USER" #MUST BE ANYWHERE IN LOCAL USER'S DESCRIPTION FIELD
 $RemoteDomain = "studio.lan"
+$DCPort = 389
 $Users = Get-ADUser -Filter * -SearchBase $SearchBase -Properties Description,Office | Select-Object Name,SamAccountName,Description,Office | Where-Object { $_.Description -like "*$($UserDescription)*" }
 $emailnotify = 1 #IF 1, EMAIL NOTIFICATIONS WILL BE SENT, ELSE = THEY WON'T
 
@@ -51,6 +52,20 @@ $admins = "zaven@volnorez.lan","nikita@volnorez.lan"
 #CORE LOGIC VARIABLES
 $cycle = 0
 $amount = ($Users | Measure-Object).Count
+$dcresolve = Resolve-DnsName -Name $RemoteDomain
+ForEach ($address in $dcresolve) {
+    Write-Host "Testing $($RemoteDomain) at $($address.IPAddress)..."
+    $port = Test-NetConnection $address.IPAddress -Port $DCPort
+    if ($port.TcpTestSucceeded -eq $True) {
+        Write-Host "Port $($DCPort) open at $($address.IPAddress)!" -ForegroundColor Green
+        $RemoteDCAddress = $address.IPAddress
+        Write-Host "Address for $($RemoteDomain) AD queries is set as: $($RemoteDCAddress)."
+        break
+    } elseif ($port.TcpTestSucceeded -eq $False) {
+        Write-Host "Port $($DCPort) at $($address.IPAddress) unavailable." -ForegroundColor Red
+        $UnavailableDomainList += "$($address.Name) @ $($address.IPAddress) `n"
+    }
+}
 
 #CORE LOGIC
 $Users | ForEach-Object {
@@ -60,7 +75,7 @@ $Users | ForEach-Object {
     Write-Host "Working on $($LocalUser.Name)..."
     $Error.Clear()
     Try {
-        $global:RemoteUser = Get-ADUser $LocalUser.Office -Server $RemoteDomain -Properties Name,SamAccountName,Title,Department,Enabled | Select-Object Name,SamAccountName,Title,Department,Enabled
+        $global:RemoteUser = Get-ADUser $LocalUser.Office -Server "$($RemoteDCAddress):$($DCPort)" -Properties Name,SamAccountName,Title,Department,Enabled | Select-Object Name,SamAccountName,Title,Department,Enabled
         #THE OFFICE ATTRIBUTE SHOULD CONTAIN USER'S SAMACCOUNT NAME ON THE REMOTE DOMAIN
     } catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
         if (($LocalUser.Enabled -eq $True) -or ($LocalUser.Enabled -eq $null)) {
@@ -85,7 +100,13 @@ EXCEPTION ID: $($_.FullyQualifiedErrorId)"
 Check $($logpath) for the error logs! `n`
 CYCLE STOPPED AT: $($cycle) OUT OF $($amount)
 USER STOPPED AT: $($LocalUser.Name) [Remote user: $($LocalUser.Office)@$($RemoteDomain)] `n`
-$($Exception)" `
+$($Exception) `n`
+Domain Controllers availability list:
+    $($RemoteDomain) resolve list:
+        $($dcresolve | Out-String)
+    Unavailable domain list:
+        $($UnavailableDomainList)
+    Chosen address for $($RemoteDomain): $($RemoteDCAddress)" `
                 -SmtpServer $smtpserver `
                 -Port $smtpport `
                 -Credential $credentials `
@@ -100,7 +121,7 @@ $($Exception)" `
         Write-Host "Exiting!" -ForegroundColor Red
         Exit
     }
-if (!$error) {
+    if (!$error) {
         if (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null)) { #IF USER IS ENABLED, THE CELL WILL COME BACK EMPTY OR TRUE
             if (($LocalUser.Enabled -eq $False) -and (($RemoteUser.Enabled -eq $True) -or ($RemoteUser.Enabled -eq $null))) {
                 $NewlyEnabledUserList += "$($LocalUser.Name) | " + "[Remote user: $($LocalUser.Office)@$($RemoteDomain)]`n"
@@ -145,6 +166,15 @@ For more in-depth logs, check $($logpath)." `
             -Credential $credentials `
             -UseSsl
 }
+
+Write-Host @"
+RESOLVE LIST FOR $($RemoteDomain):
+$($dcresolve | Out-String)
+PORT $($DCPort) UNAVAILABLE FOR:
+$($UnavailableDomainList)
+CHOSEN AD SERVER: $($RemoteDCAddress)
+================
+"@
 
 Write-Host @"
 AMOUNT OF USERS AFFECTED/CYCLED: $($cycle) OUT OF $($amount)
